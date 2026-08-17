@@ -57,9 +57,11 @@ A tiny synthetic translating sphere ships with the code and runs with no externa
 python run_ledm.py --four-file configs/example_synthetic_sphere.txt
 ```
 
-Expect 3 snapshots, all `converged=True`, ~31k grid nodes, a few seconds of runtime. The
-run prints the resolved units, geometry, grid size, track count, and active options at
-startup, so you can confirm the inputs were read as intended. Expected log and sanity
+Expect 3 snapshots, all `converged=True`, ~31k grid nodes, about 1.5 minutes of runtime
+(the default configs use a tight solver tolerance — see
+[Solver convergence](#solver-convergence)). The run prints the resolved units, geometry,
+grid size, track count, and active options at startup, so you can confirm the inputs were
+read as intended. Expected log and sanity
 numbers are in
 [`examples/synthetic_sphere/EXPECTED_OUTPUT.md`](examples/synthetic_sphere/EXPECTED_OUTPUT.md)
 (body carries `|U|` ≈ 20 mm/s, far-field ≈ 0). Regenerate the inputs any time with
@@ -171,6 +173,18 @@ Manuscript validation scripts (figure/table generation, the Monte Carlo study, a
 parameter sweeps) are not part of this release and may be archived separately.
 
 ---
+
+## Solver convergence
+
+The saddle-point system is solved with MINRES. MINRES reports convergence against the
+scaled global system, which can be reached **before** the incompressibility constraint is
+actually satisfied: a loose tolerance can return `converged=True` while the divergence
+error is still large. The shipped configs therefore use a tight setting
+(`minres_tol = 1e-11`, `minres_maxit = 20000`, `use_jacobi_precond = on`) that drives the
+normalized divergence residual to `~1e-4`. This is why the synthetic example takes about
+1.5 minutes rather than seconds. If you loosen `minres_tol` for speed, judge the result by
+the reported normalized divergence and constraint residuals, not by the `converged` flag
+alone.
 
 ## Testing
 
