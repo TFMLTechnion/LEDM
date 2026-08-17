@@ -1,4 +1,4 @@
-# LE-DM — Lagrangian-to-Eulerian reconstruction with Dynamic Masking
+# LE-DM : Lagrangian-to-Eulerian reconstruction with Dynamic Masking
 
 **LE-DM is an open-source reference implementation of the boundary-aware
 Lagrangian-to-Eulerian reconstruction framework introduced by Jose et al.** The
