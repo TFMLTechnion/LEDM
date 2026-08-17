@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the paper below."
+title: "LE-DM: Lagrangian-to-Eulerian reconstruction with Dynamic Masking"
+version: 1.0.0
+date-released: 2026-08-16
+license: GPL-3.0-or-later
+repository-code: "TODO: fill repository URL before publishing"
+# ---------------------------------------------------------------------------
+# PLACEHOLDERS — fill before publishing:
+#   * authors: replace the placeholder entry with the paper's author list
+#     (given-names / family-names, in order; add orcid: if available).
+#   * title (preferred-citation): replace with the exact paper title.
+#   * doi: replace "10.5281/zenodo.PLACEHOLDER" with the minted Zenodo DOI
+#     (see ZENODO_UPLOAD.md); update the same DOI in README.md.
+# arXiv id (2606.25748) is set; leave it as-is.
+# ---------------------------------------------------------------------------
+authors:
+  - family-names: "PLACEHOLDER"
+    given-names: "Author"
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+preferred-citation:
+  type: article
+  title: "PLACEHOLDER — exact paper title"
+  authors:
+    - family-names: "PLACEHOLDER"
+      given-names: "Author"
+  year: 2026
+  identifiers:
+    - type: other
+      value: "arXiv:2606.25748"
+      description: "arXiv preprint"
+    - type: doi
+      value: "10.5281/zenodo.PLACEHOLDER"
+      description: "Zenodo dataset + software archive (fill after minting)"

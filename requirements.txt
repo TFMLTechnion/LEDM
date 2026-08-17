@@ -1,0 +1,28 @@
+# LE-DM v1.0.0 runtime dependencies (the only third-party imports in the package).
+#   numpy       - arrays / linear algebra (every module)
+#   scipy       - sparse matrices, MINRES saddle-point solve, cKDTree
+#   matplotlib  - figures (ccmplus/drivers/sphere.py; imported by the test suite)
+# No other third-party packages are imported (no pandas, numba, sklearn, h5py).
+#
+# Python: developed and tested on CPython 3.11.9 (3.11+ recommended).
+#
+# REPRODUCIBILITY PIN (see REPRODUCIBILITY.md).
+# Verified-working combo for this release: numpy 1.26.4 / scipy 1.12.0 /
+# matplotlib 3.11.1 on CPython 3.11.9 — the example and the paper cases run and
+# converge. The upper bounds hold the toolchain at the paper-era versions for
+# numerical reproducibility of the published figures; on numpy >= 2.4 / scipy
+# >= 1.17 the float results drift.
+#
+# KNOWN, NOT introduced by packaging: 8 strict-accuracy unit tests fail on BOTH
+# the pinned combo AND numpy 2.4/scipy 1.17 (identical set: test_constraints x2,
+# test_io_tecplot x3, test_solver_onefluid x3) — a pre-existing limitation of the
+# frozen v2 solver build, unrelated to the pin. The reconstruction pipeline
+# itself is unaffected (all reconstruct/geometry/two-file tests pass; the bundled
+# example and the paper cases converge). See REPRODUCIBILITY.md.
+
+numpy>=1.24,<2.0        # verified: 1.26.4
+scipy>=1.10,<1.13       # verified: 1.12.0
+matplotlib>=3.6,<4      # verified: 3.11.1
+
+# Only needed to run the unit-test suite under ccmplus/tests/:
+pytest>=7.0,<9          # verified: 8.x
