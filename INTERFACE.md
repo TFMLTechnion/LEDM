@@ -9,7 +9,7 @@ identical. **Nothing in this file is changed by the new layer; it is only called
 ```python
 grid   = RectGrid(domain_min, domain_max, delta)          # uniform Cartesian
 config = Config(domain_min, domain_max, delta, kappa=…, solver_rtol=…,
-                solver_maxiter=…, enable_lema=True, interp_kernel=…, …)
+                solver_maxiter=…, boundary_constraints=True, interp_kernel=…, …)
 solver = CCMPlus(config, grid)
 for step in order:                                        # warm-start chain
     body  = BodyState(X_s, U_s, omega_s, radius, sigma_s,
@@ -19,7 +19,10 @@ for step in order:                                        # warm-start chain
 ```
 
 `res.velocity` is `(Ng, 3)`, `res.classification` is `(Ng,)` int8 in {-1,0,+1}, plus
-`residual`, `iterations`, `converged`. Node order is `idx = i + Nx*(j + Ny*k)`, DOFs
+`residual`, `iterations`, `converged`. The solve additionally returns normalized
+constraint diagnostics on `SolverInfo.constraints` (`div_rms_norm`, `body_rel`, and
+their pass/fail flags) — check those rather than `converged` alone, which only
+reflects the scaled saddle system. Node order is `idx = i + Nx*(j + Ny*k)`, DOFs
 `3*idx (+0,+1,+2)`. Reference: [drivers/sphere.py:1438-1521](ccmplus/drivers/sphere.py#L1438-L1521)
 and [run_ledm.py:184-211](run_ledm.py#L184-L211).
 

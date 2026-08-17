@@ -4,31 +4,42 @@ title: "LE-DM: Lagrangian-to-Eulerian reconstruction with Dynamic Masking"
 version: 1.0.0
 date-released: 2026-08-16
 license: GPL-3.0-or-later
-repository-code: "TODO: fill repository URL before publishing"
-# ---------------------------------------------------------------------------
-# PLACEHOLDERS — fill before publishing:
-#   * authors: replace the placeholder entry with the paper's author list
-#     (given-names / family-names, in order; add orcid: if available).
-#   * title (preferred-citation): replace with the exact paper title.
-#   * doi: replace "10.5281/zenodo.PLACEHOLDER" with the minted Zenodo DOI
-#     (see ZENODO_UPLOAD.md); update the same DOI in README.md.
-# arXiv id (2606.25748) is set; leave it as-is.
-# ---------------------------------------------------------------------------
+repository-code: "https://github.com/TFMLTechnion/LEDM"
 authors:
-  - family-names: "PLACEHOLDER"
-    given-names: "Author"
-    # orcid: "https://orcid.org/0000-0000-0000-0000"
+  - family-names: "Jose"
+    given-names: "Jibu Tom"
+  - family-names: "Jacobson"
+    given-names: "Arieh"
+  - family-names: "Shenoy"
+    given-names: "Dhanush Vittal"
+  - family-names: "Frankel"
+    given-names: "Steven H."
+  - family-names: "Ram"
+    given-names: "Omri"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.21965844"
+    description: "Zenodo data record accompanying this software"
 preferred-citation:
   type: article
-  title: "PLACEHOLDER — exact paper title"
+  title: "Dynamic masking for boundary-aware velocity reconstruction in volumetric particle tracking with moving solids"
   authors:
-    - family-names: "PLACEHOLDER"
-      given-names: "Author"
+    - family-names: "Jose"
+      given-names: "Jibu Tom"
+    - family-names: "Jacobson"
+      given-names: "Arieh"
+    - family-names: "Shenoy"
+      given-names: "Dhanush Vittal"
+    - family-names: "Frankel"
+      given-names: "Steven H."
+    - family-names: "Ram"
+      given-names: "Omri"
   year: 2026
+  doi: "10.48550/arXiv.2606.25748"
   identifiers:
     - type: other
       value: "arXiv:2606.25748"
       description: "arXiv preprint"
     - type: doi
-      value: "10.5281/zenodo.PLACEHOLDER"
-      description: "Zenodo dataset + software archive (fill after minting)"
+      value: "10.5281/zenodo.21965844"
+      description: "Zenodo data record"

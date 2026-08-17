@@ -1,92 +1,112 @@
-# Reproducibility
+# Relationship to the paper
 
-What to set to reproduce each result in the paper, and the toolchain used.
+This package is an **open research reference implementation of LE-DM**: a readable,
+runnable, extensible implementation of the method. It is **not** a paper-reproduction
+archive, and it does not ship scripts that regenerate specific manuscript figures,
+tables, or sweeps.
 
-## Proximity reweighting — the one non-obvious flag
+## Method reference
 
-LE-DM can down-weight tracks within ~`sigma_gamma` of the body surface
-(`W_ii = (1/sigma_i^2)·[1 − exp(−max(0,phi)/sigma_gamma)]`). This is controlled by
-`enable_proximity_reweight`.
+> Jibu Tom Jose, Arieh Jacobson, Dhanush Vittal Shenoy, Steven H. Frankel, Omri Ram,
+> *Dynamic masking for boundary-aware velocity reconstruction in volumetric particle
+> tracking with moving solids*, arXiv:2606.25748,
+> DOI [10.48550/arXiv.2606.25748](https://doi.org/10.48550/arXiv.2606.25748).
 
-**The two-file / four-file input path (`run_ledm.py --four-file`) defaults
-`enable_proximity_reweight = false`.** A run therefore does NOT apply near-wall
-down-weighting unless you set the flag `true`. Every shipped config sets it
-**explicitly** (no silent default), so what you run is what the paper ran.
+Read the paper for the derivation, the notation, and the validation study. This
+repository implements the method described there; equation numbers in the source
+comments (e.g. Eqs. 13-14 for the coverage-adaptive smoothness) refer to it.
 
-`sigma_gamma` is a length in **mm**, compared directly to the signed distance `phi`
-(no `dx` scaling). When `enable_proximity_reweight = false`, `sigma_gamma` is carried
-but inert.
+## Data
 
-### Per-case settings (as used in the paper)
+The datasets used in the paper are archived separately:
 
-| Paper case | config | input mode | `enable_proximity_reweight` | `sigma_gamma` |
-|---|---|---|---|---|
-| CFD rising sphere | `configs/paper_cfd_sphere.txt` | position-only | **true (ON)** | 0.5 mm |
-| CFD tumbling spheroid | `configs/paper_cfd_spheroid.txt` | two-file | **false (OFF)** | 0.5 mm (inert) |
-| Laboratory PTV experiment | `configs/paper_experiment.txt` | two-file | **true (ON)** | 0.5 mm |
-| Bundled synthetic sphere (install check) | `configs/example_synthetic_sphere.txt` | two-file | false (OFF) | 0.5 mm (inert) |
+> Zenodo data record, DOI [10.5281/zenodo.21965844](https://doi.org/10.5281/zenodo.21965844).
 
-So: to reproduce the **CFD-sphere** and **experiment** numbers you must run the
-four-file path with `enable_proximity_reweight = true`; the shipped configs already do.
-The **spheroid** used the default OFF.
+Download the case you want and unpack it under a `data/` folder next to the code, so
+the relative paths in `paper_templates/*.txt` resolve.
 
-## Input mode — which cases need a kinematics file
+## What is and is not claimed
 
-- **Sphere → omit `kinematics_file`.** The body velocity is obtained by differentiating
-  the position trajectory, with `omega = 0`. This is the position-only path and it
-  reproduces the original single-file sphere behaviour, which is what the paper's
-  CFD-sphere case used — so `paper_cfd_sphere.txt` ships with **no** `kinematics_file`
-  and `data/cfd_sphere/` needs no `kinematics.dat`.
-- **Non-spherical or rotating body → `kinematics_file` is required.** A tumbling
-  spheroid's `omega` cannot be recovered from its centre trajectory, so the reader
-  refuses to differentiate a non-sphere and raises a hard error asking for the file.
-  `paper_cfd_spheroid.txt` and `paper_experiment.txt` therefore keep theirs.
+**Provided.** A faithful implementation of the method; a self-contained synthetic
+example that runs from the repository with no external data
+(`configs/example_synthetic_sphere.txt`); illustrative starting configs for each
+published case (`paper_templates/`); and a unit-test suite covering the geometry
+layer, the input contract, the constraint assembly, and the solver.
 
-Setting `kinematics_file` to a path that does not exist is a load-time
-`FileNotFoundError`, not a silent fallback to differentiation — so an unused key must be
-removed, not left dangling. See `LEDM_input_spec.md` §3 for the full contract.
+**Not provided, and not claimed.** Bit-for-bit reproduction of published numbers.
+The configs in `paper_templates/` are starting points whose numerical parameters
+(`dx`, `kappa`, `lambda_c`, `sigma_u`, `sigma_gamma`, `roi_pad`, solver tolerances)
+are **placeholders**, not the manuscript's values. Set them from the published
+values and from your own data. Results also depend on BLAS, numpy/scipy versions,
+and the MINRES tolerance you choose.
 
-### Path caveat (why the flag only works on the four-file path)
+## Things that will change your results
 
-- `python run_ledm.py --four-file <config>` (the two-file interface) reads
-  `enable_proximity_reweight` from the config and honors it. **Use this path.**
-- The historical sphere *research* driver (`ccmplus/drivers/sphere.py`), which
-  generated the original CFD-sphere figures, applies the reweighting
-  *unconditionally*. The four-file path with `enable_proximity_reweight = true`,
-  `sigma_gamma = 0.5` reproduces that behavior through the public interface.
+These are the settings most likely to matter, and the ones worth stating explicitly
+in any write-up that uses this code.
+
+### 1. The MINRES tolerance is a physics setting, not a performance knob
+
+The saddle-point solve reports `converged` against the **scaled** system, which
+happens well before the divergence constraint is actually satisfied. On the bundled
+synthetic example, `minres_tol = 1e-6` stops after ~12 iterations with a **9%
+divergence error** while still reporting `converged=True`.
+
+Every run therefore reports two normalized constraint residuals after the solve
+(`SolverInfo.constraints`, and in the log line):
+
+| quantity | meaning | key |
+|---|---|---|
+| `dx * rms(div u) / U_ref` | dimensionless divergence error per cell | `constraint_div_tol` |
+| relative residual of the no-slip rows | how well `u = u_Gamma` holds on the body | `constraint_body_tol` |
+
+A run that misses either tolerance raises a `RuntimeWarning` naming the number.
+**Treat that warning as a failed run.** The fix is to tighten the solve
+(`minres_tol`, `minres_maxit`, `use_jacobi_precond = on`), not to relax the
+tolerance.
+
+### 2. Proximity reweighting
+
+`enable_proximity_reweight` controls whether tracks within ~`sigma_gamma` of the body
+surface are down-weighted:
+
+```
+W_ii = (1/sigma_i^2) * [1 - exp(-max(0, phi)/sigma_gamma)]
+```
+
+**It defaults to `false`**, so a run does not apply near-wall down-weighting unless
+you ask for it. `sigma_gamma` is a length in the run's length unit, compared directly
+to the signed distance `phi` (no `dx` scaling); when reweighting is off it is carried
+but inert. Every shipped config sets the flag explicitly rather than relying on the
+default. It is a run-level scalar, not per-snapshot.
+
+### 3. Boundary constraints on/off
+
+`boundary_constraints = off` removes the shell/solid no-slip constraint rows and
+enforces divergence uniformly over all interior nodes. **It does not turn the run
+into an all-fluid reconstruction:** interpolation and smoothing are still masked by
+the body classification, so tracks never write into the body interior. Report it as
+an ablation of the boundary conditions, and do not describe it as a body-agnostic
+baseline. (`enable_lema` is the deprecated spelling of this flag.)
+
+### 4. Coverage-adaptive smoothness
+
+`lambda_c` weights the Eq. 13-14 penalty, with `coverage_ref_count` (`c_0`) setting
+the track count at which the smoothing weight halves. The neighbour difference is
+**unscaled** (no `1/dx` factor), so `lambda_c` is dimensionless relative to the data
+term and does not need recalibrating when the grid is refined. See
+`LEDM_input_spec.md` and `ccmplus/operators.py`.
 
 ## Toolchain
 
-Verified-working combo, pinned in `requirements.txt`:
+Developed on CPython 3.11.9 with numpy 1.26.4 / scipy 1.12.0; `requirements.txt`
+pins compatible ranges. Exact floating-point digits vary with numpy/scipy and BLAS.
+The tolerances asserted by the test suite and quoted in
+`examples/synthetic_sphere/EXPECTED_OUTPUT.md` are chosen to hold across those
+variations — judge a run by those, not by digit-for-digit agreement.
 
-| package | version |
-|---|---|
-| Python | CPython 3.11.9 |
-| numpy | 1.26.4 |
-| scipy | 1.12.0 |
-| matplotlib | 3.11.1 |
-| pytest | 8.x |
+Run the tests with:
 
-Pin the upper bounds (numpy < 2.0, scipy < 1.13) for numerical reproducibility of the
-published figures; on numpy ≥ 2.4 / scipy ≥ 1.17 the float results drift.
-
-## Test-suite status (honest)
-
-`python -m pytest ccmplus/tests -q` → **217 passed, 10 skipped, 8 failed** on the
-pinned toolchain.
-
-The 8 failures are **pre-existing limitations of the frozen v2 solver build**, present
-identically on the pinned combo AND on numpy 2.4 / scipy 1.17 — they are **not**
-introduced by this packaging and **not** fixed by the pin:
-
-- `test_constraints`: `test_interpolates_linear_field_exactly`, `test_nonzeros_per_particle`
-- `test_io_tecplot`: `test_header_fields`, `test_variable_values`, `test_classification_integers`
-- `test_solver_onefluid`: `test_noisy_data_bounded_error`,
-  `test_reconstructed_field_divergence_free_at_interior`, `test_constraint_satisfaction_general`
-
-They reflect strict divergence-free / interpolation-accuracy tolerances the frozen build
-does not fully meet (a MINRES preconditioner + benchmark re-tuning are the documented
-follow-ups). **The reconstruction pipeline itself is unaffected**: every
-reconstruct / geometry / two-file / classify / grid test passes, the bundled synthetic
-example converges (3/3), and the paper cases converge. Treat the 8 as a known baseline,
-not a packaging regression.
+```
+python -m pytest ccmplus/tests -q
+```

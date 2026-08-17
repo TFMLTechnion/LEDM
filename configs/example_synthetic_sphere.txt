@@ -1,0 +1,74 @@
+# =====================================================================
+# LE-DM two-file example: tiny synthetic translating sphere.
+#
+# Self-contained: the input files ship in the ZIP under
+# examples/synthetic_sphere/. Run from the package root:
+#
+#     python run_ledm.py --four-file configs/example_synthetic_sphere.txt
+#
+# Paths below are RELATIVE TO THIS CONFIG FILE (configs/), so the command
+# works from any working directory. Expected output + numbers to check:
+# examples/synthetic_sphere/EXPECTED_OUTPUT.md.
+# =====================================================================
+
+# --- inputs (three data files) ---------------------------------------
+position_file     = ../examples/synthetic_sphere/geometry.dat
+kinematics_file   = ../examples/synthetic_sphere/kinematics.dat
+particles_dir     = ../examples/synthetic_sphere/particles
+particles_pattern = particles_*.dat
+
+# --- output ----------------------------------------------------------
+# NOTE: input paths above resolve relative to THIS config file; output_dir
+# resolves relative to the WORKING DIRECTORY. Run from the package root so
+# this lands under examples/ as intended.
+output_dir    = examples/synthetic_sphere/output
+case_name     = synthetic_sphere
+output_format = npz          # npz | dat | both
+
+# --- grid / region of interest ---------------------------------------
+dx             = 1.0         # mm
+roi_mode       = body        # restrict grid to a box around the sphere
+roi_pad        = 1.0         # body characteristic-lengths of padding
+max_grid_nodes = 2000000
+
+# --- LE-DM solver ----------------------------------------------------
+# on  = no-slip body constraints + body-aware divergence stencils (LE-DM).
+# off = those constraint rows are dropped; interpolation and smoothing are
+#       STILL masked by the body, so 'off' is a boundary-condition ablation,
+#       not an all-fluid reconstruction.
+boundary_constraints = on
+kappa          = 100
+lambda_c       = 0.05        # coverage-adaptive smoothness weight (Eqs. 13-14)
+coverage_ref_count = 1.0     # c_0: track count giving half smoothing weight
+sigma_u        = 0.01
+warm_start     = true
+
+# --- MINRES solve ----------------------------------------------------
+# NOTE: the saddle system needs a genuinely tight solve before the divergence
+# constraint is satisfied. MINRES will report "converged" on the scaled system
+# long before div(u) is small: at minres_tol = 1e-6 this case stops after ~12
+# iterations with Delta*rms(div u)/U_ref ~ 9e-2, i.e. a 9% divergence error.
+# The settings below reach ~1.5e-4, comfortably inside constraint_div_tol.
+# The cost is real (~20 s/snapshot instead of ~1 s) and is the honest price of
+# an actually divergence-free field -- do not loosen these to make the example
+# faster without also checking the reported div_rms_norm.
+minres_tol         = 1e-11
+minres_maxit       = 20000
+use_jacobi_precond = on      # block-Jacobi preconditioner; ~2x fewer iterations
+
+# --- constraint tolerances (checked AFTER the solve, and warned about) ---
+constraint_div_tol  = 1e-3   # dimensionless Delta*rms(div u)/U_ref
+constraint_body_tol = 1e-3   # relative residual of the no-slip identity rows
+
+# --- proximity reweighting -------------------------------------------
+# Dense synthetic seeding: near-wall down-weighting OFF (the default).
+enable_proximity_reweight = false
+sigma_gamma               = 0.5   # near-wall length [mm]; inert while reweighting is OFF
+
+# --- coordinate / rotation convention (governs ALL files) ------------
+length_unit = mm
+time_unit   = s
+angle_unit  = rad
+euler_seq   = ZYX
+handedness  = right
+omega_frame = world

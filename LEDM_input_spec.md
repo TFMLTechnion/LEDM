@@ -42,12 +42,16 @@ void (no tracks inside the solid); the code does not read a mask.
   |---------------|----------|-------------------------------------------|
   | x y z         | yes      | track position, world frame, length unit  |
   | u v w         | yes      | track velocity, length/time unit          |
-  | ax ay az      | no       | Lagrangian acceleration Du/Dt (see note)  |
+  | ax ay az      | no       | **reserved / ignored** (see note)         |
   | su sv sw      | no       | per-track velocity uncertainty (1 sigma)  |
 
-- Acceleration, if present, must be the Lagrangian material derivative Du/Dt following
-  the particle, not the Eulerian dv/dt at a point. It is used for pressure and for the
-  VIC# comparison; supplying an Eulerian acceleration silently corrupts both.
+- Acceleration columns are **parsed but not consumed**: they are read into
+  `part["accel"]` and go no further. There is no pressure solver and no VIC#
+  comparison path in this release. The columns are reserved for a future
+  extension; supplying or omitting them changes nothing in the reconstruction.
+  If you do supply them, use the Lagrangian material derivative Du/Dt following
+  the particle (not the Eulerian dv/dt at a point) so the data stays correct for
+  whenever the extension lands.
 - Uncertainty, if present, feeds the per-track data weight. If absent, the scalar
   default `sigma_u` from the parameter file is used for all tracks.
 - Ghost tracks inside the solid are removed by the code using the signed-distance
@@ -168,16 +172,57 @@ max_grid_nodes = 2000000    # hard node-count ceiling: assembly raises ValueErro
                             # inside the solver on a full-cloud auto grid (default 2_000_000)
 
 # --- LE-DM solver (names must match ccmplus) ---
+boundary_constraints = on   # on | off. ON assembles the no-slip shell/solid
+                            # Dirichlet rows, seeds transition nodes from the body
+                            # velocity, and uses body-aware (fluid-side) divergence
+                            # stencils. OFF drops those constraint rows and enforces
+                            # divergence uniformly over all interior nodes.
+                            # OFF is an ABLATION of the boundary conditions, NOT an
+                            # all-fluid reconstruction: interpolation and smoothing
+                            # remain masked by the body classification either way.
+                            # (`enable_lema` is the deprecated spelling; it still
+                            # works but warns.)
 sigma_gamma   = 0.25        # surface-proximity down-weighting length [mm]
 enable_proximity_reweight = false  # apply the sigma_gamma near-wall down-weighting?
-                            # DEFAULT false. Must be true to reproduce the CFD-sphere /
-                            # experiment paper cases; see REPRODUCIBILITY.md.
 kappa         = 10          # temporal-prior weight
-lambda_c      = ...         # smoothness weight (fixed from synthetic benchmark)
 sigma_u       = 0.005       # default per-track velocity uncertainty
-minres_tol    = 1e-8
-minres_maxit  = 500
 warm_start    = true
+
+# --- coverage-adaptive smoothness (Eqs. 13-14) ---
+lambda_c           = 0.05   # weight of the coverage-adaptive smoothness penalty
+coverage_ref_count = 1.0    # c_0: local track count giving half smoothing weight
+#   c_j  = number of tracks within a radius of dx of open-fluid node j
+#          (an actual cKDTree radius query over the track positions).
+#   w_j  = 1 / (1 + c_j / c_0)
+#   edge weight w_bar_jn = 0.5 * (w_j + w_n)   -- the AVERAGE of the two endpoint
+#          weights, so the penalty on an edge does not depend on which endpoint
+#          it is attributed to. An edge is emitted only when BOTH endpoints are
+#          open fluid, so smoothing never couples across the body interface.
+#
+#   SPACING CONVENTION: Eq. 13 is an UNSCALED neighbour difference. The operator
+#   penalises sum_edges w_bar_jn * ||u_n - u_j||^2 with NO 1/dx factor, so
+#   lambda_c is dimensionless relative to the velocity-squared data term and its
+#   calibration does not shift when the grid is refined. This is the single,
+#   consistent choice throughout; see ccmplus/operators.py.
+
+# --- MINRES solve ---
+minres_tol    = 1e-11
+minres_maxit  = 20000
+use_jacobi_precond = on     # block-Jacobi (diag of H) preconditioner; roughly
+                            # halves the iteration count on stiff systems.
+#   WARNING: MINRES reports "converged" on the SCALED saddle system well before
+#   div(u) is actually small. On the bundled synthetic example, minres_tol = 1e-6
+#   stops after ~12 iterations with a 9% divergence error. Judge the solve by the
+#   reported div_rms_norm, not by `converged`.
+
+# --- constraint tolerances (checked after the solve; a miss raises a warning) ---
+constraint_div_tol  = 1e-3  # dimensionless dx*rms(div u)/U_ref over the fluid rows
+constraint_body_tol = 1e-3  # relative residual of the no-slip identity rows
+#   The two families are judged differently on purpose. A divergence row has units
+#   of velocity/length, so only the normalised form is a physically meaningful
+#   threshold. The body rows are exact algebraic Dirichlet conditions with an O(1)
+#   right-hand side, so a plain relative residual is the right measure and it should
+#   hold to roughly the MINRES tolerance.
 
 # --- output (optional; default reproduces the .npz-only behaviour) -----
 output_format = npz         # npz | dat | both (default npz)
@@ -238,11 +283,21 @@ Load-time consistency checks (fail with a clear message, do not default silently
 1. `dx > 0`; `euler_seq`, `handedness`, `omega_frame` are in the allowed sets.
 2. Geometry and kinematics `t` columns match (values, count, order); particle-file
    count matches.
-3. Units declared in file headers match the parameter file.
+3. Units declared in file headers match the parameter file. This covers the geometry
+   header (`# units:`), the kinematics header (`velocity=`, `omega=`) and, when the
+   optional `# units:` line is present, each particle file. A particle file that
+   declares no units cannot be checked — positions in `mm` with velocities in `m/s`
+   parse perfectly and are numerically indistinguishable from a correct file — so
+   declaring them is strongly recommended. The resolved units are echoed in the
+   startup banner.
 4. Physical consistency: `d/dt(center)` from the geometry file agrees with `U` from the
-   kinematics file within a tolerance, and the Euler kinematic map of the angle rates
-   agrees with `omega`. This one check catches naive-differentiation `omega`, a frame
-   mismatch, and a unit error in a single pass.
+   kinematics file within a tolerance. This catches a naively differentiated `U`, a
+   frame mismatch, and a unit error in a single pass.
+
+   There is deliberately **no** check of the Euler angle rates against `omega`. Pose
+   and angular velocity are independent rigid-body inputs: `omega` is not
+   `d(theta)/dt` under any Euler sequence, so comparing them would reject correct
+   input. The loader does not differentiate the angle columns.
 5. Grid size: after the ROI bounds are resolved (`roi_mode` = auto | box | body) the node
    count `Nx*Ny*Nz` is checked against `max_grid_nodes`. If it exceeds the ceiling, assembly
    raises `ValueError` naming the node count, `dx`, the resolved bounds and `roi_mode`, and

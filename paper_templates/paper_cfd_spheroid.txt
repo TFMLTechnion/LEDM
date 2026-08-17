@@ -1,0 +1,71 @@
+# =====================================================================
+# ILLUSTRATIVE TEMPLATE -- NOT AN EXACT PAPER-REPRODUCTION RECIPE.
+#
+# This file shows how to wire this case into the two-file input contract:
+# geometry type, input mode, and which keys matter. The numerical values
+# below (dx, kappa, lambda_c, sigma_u, roi_pad, sigma_gamma, solver
+# tolerances) are PLACEHOLDERS chosen to be reasonable and runnable -- set
+# them from the published values for the case you are reproducing and from
+# your own data's resolution and noise level. Do not assume a number here
+# is the number used in the manuscript.
+#
+# See paper_templates/README.md.
+# =====================================================================
+# =====================================================================
+# PAPER CASE: freely-rising tumbling prolate spheroid (CFD validation).
+# Two-file interface (position + kinematics). Run:
+#
+#     python run_ledm.py --four-file paper_templates/paper_cfd_spheroid.txt
+#
+# DATA IS NOT BUNDLED. Download the spheroid dataset from the Zenodo data
+# record (DOI in CITATION.cff) and unpack it under data/cfd_spheroid/ so the
+# paths below resolve. Paths are relative to THIS config file.
+#
+# REPRODUCIBILITY: the spheroid results in the paper used proximity
+# reweighting OFF (the v2 two-file default). Set explicitly below.
+# =====================================================================
+
+# --- inputs ----------------------------------------------------------
+position_file     = ../data/cfd_spheroid/position.dat
+kinematics_file   = ../data/cfd_spheroid/kinematics.dat
+particles_dir     = ../data/cfd_spheroid/particles
+particles_pattern = particles_*.dat
+
+# --- output ----------------------------------------------------------
+output_dir    = outputs/cfd_spheroid       # relative to the working directory
+case_name     = spheroid
+output_format = npz
+
+# --- grid / ROI ------------------------------------------------------
+dx             = 1.714286     # mm
+roi_mode       = body
+roi_pad        = 1.0
+max_grid_nodes = 4000000
+
+# --- LE-DM solver ----------------------------------------------------
+boundary_constraints = on
+kappa              = 100
+lambda_c           = 0.05
+coverage_ref_count = 1.0
+interp_kernel      = wide
+sigma_u            = 0.01
+minres_tol         = 1e-11   # NOTE: a loose tol (1e-6) reports "converged"
+minres_maxit       = 20000   # while div(u) is still ~1e-1; see the run banner's
+use_jacobi_precond = on      # div_rms_norm and constraint_div_tol below.
+
+# --- constraint tolerances (checked AFTER the solve, and warned about) ---
+constraint_div_tol  = 1e-3   # dimensionless Delta*rms(div u)/U_ref
+constraint_body_tol = 1e-3   # relative residual of the no-slip identity rows
+warm_start         = true
+
+# --- proximity reweighting (paper spheroid case: OFF) ----------------
+enable_proximity_reweight = false
+sigma_gamma               = 0.5   # near-wall length [mm]; inert while OFF
+
+# --- coordinate / rotation convention --------------------------------
+length_unit = mm
+time_unit   = s
+angle_unit  = rad
+euler_seq   = ZYX
+handedness  = right
+omega_frame = world

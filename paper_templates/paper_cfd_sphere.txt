@@ -1,0 +1,77 @@
+# =====================================================================
+# ILLUSTRATIVE TEMPLATE -- NOT AN EXACT PAPER-REPRODUCTION RECIPE.
+#
+# This file shows how to wire this case into the two-file input contract:
+# geometry type, input mode, and which keys matter. The numerical values
+# below (dx, kappa, lambda_c, sigma_u, roi_pad, sigma_gamma, solver
+# tolerances) are PLACEHOLDERS chosen to be reasonable and runnable -- set
+# them from the published values for the case you are reproducing and from
+# your own data's resolution and noise level. Do not assume a number here
+# is the number used in the manuscript.
+#
+# See paper_templates/README.md.
+# =====================================================================
+# =====================================================================
+# PAPER CASE: CFD rising sphere (validation).
+# Position-only input (no kinematics file -- see the inputs block). Run:
+#
+#     python run_ledm.py --four-file paper_templates/paper_cfd_sphere.txt
+#
+# DATA IS NOT BUNDLED. Download the CFD-sphere dataset from the Zenodo
+# data record (DOI in CITATION.cff) and unpack it under data/cfd_sphere/ so
+# the paths below resolve. Paths are relative to THIS config file.
+#
+# REPRODUCIBILITY (READ THIS): the paper's CFD-sphere numbers were produced
+# with proximity reweighting ON (sigma_gamma = 0.5 mm). The two-file path
+# defaults this OFF, so it MUST be set explicitly here to reproduce them.
+# Only the two-file/four-file path honors this flag; see REPRODUCIBILITY.md.
+# =====================================================================
+
+# --- inputs ----------------------------------------------------------
+# POSITION-ONLY: no kinematics_file. For a sphere the body velocity U is
+# obtained by differentiating the prescribed centre trajectory in the file
+# below (omega = 0), so no kinematics file is required -- this reproduces
+# the original single-file sphere behaviour. A non-spherical or rotating
+# body DOES require kinematics_file (see paper_templates/paper_cfd_spheroid.txt).
+position_file     = ../data/cfd_sphere/position.dat
+particles_dir     = ../data/cfd_sphere/particles
+particles_pattern = particles_*.dat
+
+# --- output ----------------------------------------------------------
+output_dir    = outputs/cfd_sphere         # relative to the working directory
+case_name     = cfd_sphere
+output_format = npz
+
+# --- grid / ROI ------------------------------------------------------
+dx             = 1.0          # mm  (set to the paper's sphere grid spacing)
+roi_mode       = body
+roi_pad        = 2.0
+max_grid_nodes = 4000000
+
+# --- LE-DM solver ----------------------------------------------------
+boundary_constraints = on
+kappa              = 100
+lambda_c           = 0.05
+coverage_ref_count = 1.0
+interp_kernel      = wide
+sigma_u            = 0.01
+minres_tol         = 1e-11   # NOTE: a loose tol (1e-6) reports "converged"
+minres_maxit       = 20000   # while div(u) is still ~1e-1; see the run banner's
+use_jacobi_precond = on      # div_rms_norm and constraint_div_tol below.
+
+# --- constraint tolerances (checked AFTER the solve, and warned about) ---
+constraint_div_tol  = 1e-3   # dimensionless Delta*rms(div u)/U_ref
+constraint_body_tol = 1e-3   # relative residual of the no-slip identity rows
+warm_start         = true
+
+# --- proximity reweighting (paper CFD-sphere case: ON) ---------------
+enable_proximity_reweight = true
+sigma_gamma               = 0.5   # near-wall down-weighting length [mm]
+
+# --- coordinate / rotation convention --------------------------------
+length_unit = mm
+time_unit   = s
+angle_unit  = rad
+euler_seq   = ZYX
+handedness  = right
+omega_frame = world

@@ -1,0 +1,76 @@
+# =====================================================================
+# ILLUSTRATIVE TEMPLATE -- NOT AN EXACT PAPER-REPRODUCTION RECIPE.
+#
+# This file shows how to wire this case into the two-file input contract:
+# geometry type, input mode, and which keys matter. The numerical values
+# below (dx, kappa, lambda_c, sigma_u, roi_pad, sigma_gamma, solver
+# tolerances) are PLACEHOLDERS chosen to be reasonable and runnable -- set
+# them from the published values for the case you are reproducing and from
+# your own data's resolution and noise level. Do not assume a number here
+# is the number used in the manuscript.
+#
+# See paper_templates/README.md.
+# =====================================================================
+# =====================================================================
+# PAPER CASE: laboratory PTV experiment.
+# Two-file interface (position + kinematics). Run:
+#
+#     python run_ledm.py --four-file paper_templates/paper_experiment.txt
+#
+# DATA IS NOT BUNDLED. Download the experiment sample from the Zenodo data
+# record (DOI in CITATION.cff) and unpack it under data/experiment/ so the
+# paths below resolve. Paths are relative to THIS config file.
+#
+# REPRODUCIBILITY: the experiment case used proximity reweighting ON
+# (sigma_gamma = 0.5 mm), the near-wall down-weighting designed for real,
+# noisier PTV tracks. Set explicitly below; only the two-file/four-file
+# path honors this flag (see REPRODUCIBILITY.md).
+#
+# NOTE: geometry/dx/ROI below are placeholders for the experiment body and
+# volume — set them to your case (shape header lives in position.dat).
+# =====================================================================
+
+# --- inputs ----------------------------------------------------------
+position_file     = ../data/experiment/position.dat
+kinematics_file   = ../data/experiment/kinematics.dat
+particles_dir     = ../data/experiment/particles
+particles_pattern = particles_*.dat
+
+# --- output ----------------------------------------------------------
+output_dir    = outputs/experiment         # relative to the working directory
+case_name     = experiment
+output_format = both                       # npz (authoritative) + tecplot .dat
+
+# --- grid / ROI ------------------------------------------------------
+dx             = 1.0          # mm  (set to your experiment grid spacing)
+roi_mode       = body
+roi_pad        = 2.0
+max_grid_nodes = 4000000
+
+# --- LE-DM solver ----------------------------------------------------
+boundary_constraints = on
+kappa              = 100
+lambda_c           = 0.05
+coverage_ref_count = 1.0
+interp_kernel      = wide
+sigma_u            = 0.01     # raise toward the measured PTV velocity 1-sigma
+minres_tol         = 1e-11   # NOTE: a loose tol (1e-6) reports "converged"
+minres_maxit       = 20000   # while div(u) is still ~1e-1; see the run banner's
+use_jacobi_precond = on      # div_rms_norm and constraint_div_tol below.
+
+# --- constraint tolerances (checked AFTER the solve, and warned about) ---
+constraint_div_tol  = 1e-3   # dimensionless Delta*rms(div u)/U_ref
+constraint_body_tol = 1e-3   # relative residual of the no-slip identity rows
+warm_start         = true
+
+# --- proximity reweighting (paper experiment case: ON) ---------------
+enable_proximity_reweight = true
+sigma_gamma               = 0.5   # near-wall down-weighting length [mm]
+
+# --- coordinate / rotation convention --------------------------------
+length_unit = mm
+time_unit   = s
+angle_unit  = rad
+euler_seq   = ZYX
+handedness  = right
+omega_frame = world

@@ -6,23 +6,15 @@
 #
 # Python: developed and tested on CPython 3.11.9 (3.11+ recommended).
 #
-# REPRODUCIBILITY PIN (see REPRODUCIBILITY.md).
-# Verified-working combo for this release: numpy 1.26.4 / scipy 1.12.0 /
-# matplotlib 3.11.1 on CPython 3.11.9 — the example and the paper cases run and
-# converge. The upper bounds hold the toolchain at the paper-era versions for
-# numerical reproducibility of the published figures; on numpy >= 2.4 / scipy
-# >= 1.17 the float results drift.
-#
-# KNOWN, NOT introduced by packaging: 8 strict-accuracy unit tests fail on BOTH
-# the pinned combo AND numpy 2.4/scipy 1.17 (identical set: test_constraints x2,
-# test_io_tecplot x3, test_solver_onefluid x3) — a pre-existing limitation of the
-# frozen v2 solver build, unrelated to the pin. The reconstruction pipeline
-# itself is unaffected (all reconstruct/geometry/two-file tests pass; the bundled
-# example and the paper cases converge). See REPRODUCIBILITY.md.
+# Developed on numpy 1.26.4 / scipy 1.12.0 / matplotlib 3.11.1, CPython 3.11.9.
+# The test suite is green on that combo and on numpy 2.4 / scipy 1.17. Exact
+# floating-point digits vary with numpy/scipy and BLAS; the suite asserts
+# tolerances chosen to hold across them rather than digit-for-digit agreement.
+# See REPRODUCIBILITY.md.
 
-numpy>=1.24,<2.0        # verified: 1.26.4
-scipy>=1.10,<1.13       # verified: 1.12.0
-matplotlib>=3.6,<4      # verified: 3.11.1
+numpy>=1.24             # developed on 1.26.4; also tested on 2.4
+scipy>=1.10             # developed on 1.12.0; also tested on 1.17
+matplotlib>=3.6,<4      # developed on 3.11.1
 
 # Only needed to run the unit-test suite under ccmplus/tests/:
 pytest>=7.0,<9          # verified: 8.x
